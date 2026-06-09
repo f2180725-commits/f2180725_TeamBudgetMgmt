@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>법인카드 예산 관리 — 동아오츠카</title>
+<title>성장파트너십 예산관리</title>
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
 <style>
 *{box-sizing:border-box;margin:0;padding:0}
@@ -105,10 +105,6 @@ h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;
 .btn-save:hover{background:#0C447C}
 .btn-del{font-size:13px;padding:8px 14px;background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;border-radius:8px;cursor:pointer;margin-right:auto}
 .btn-del:hover{background:#fad7d7}
-.calc-btn{font-size:12px;padding:5px 7px;border:1px solid #e0e0de;border-radius:7px;background:#fff;color:#666;cursor:pointer;white-space:nowrap;flex-shrink:0}
-.calc-btn:hover{background:#f5f5f4}
-.calc-btn.plus{border-color:#B5D4F4;background:#E6F1FB;color:#185FA5}
-.calc-btn.plus:hover{background:#d0e8f8}
 .cal-wrap{background:#fff;border:0.5px solid #e5e5e3;border-radius:10px;overflow:hidden}
 .cal-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid #f0f0ef}
 .cal-nav{background:none;border:none;cursor:pointer;font-size:18px;color:#888;padding:2px 8px;border-radius:6px}
@@ -169,15 +165,7 @@ h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;
 
     <div class="field">
       <label>지출금액 <span style="color:#185FA5;font-weight:600">(부가세 포함, 원)</span></label>
-      <div style="display:flex;gap:6px;align-items:center">
-        <button type="button" class="calc-btn" onclick="adjustAmt(-1000)">−1천</button>
-        <button type="button" class="calc-btn" onclick="adjustAmt(-5000)">−5천</button>
-        <button type="button" class="calc-btn" onclick="adjustAmt(-10000)">−1만</button>
-        <input type="number" id="fAmtIncl" placeholder="직접 입력" min="0" step="1000" oninput="updateVatPreview()" style="flex:1"/>
-        <button type="button" class="calc-btn plus" onclick="adjustAmt(10000)">+1만</button>
-        <button type="button" class="calc-btn plus" onclick="adjustAmt(5000)">+5천</button>
-        <button type="button" class="calc-btn plus" onclick="adjustAmt(1000)">+1천</button>
-      </div>
+      <input type="text" id="fAmtIncl" placeholder="예: 35000+10600 또는 99000" oninput="updateVatPreview()" style="width:100%" autocomplete="off"/>
       <div class="vat-preview" id="vatPreview"><span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span></div>
     </div>
     <div class="field"><label>메모</label><textarea id="fMemo" placeholder="방문 메모 (선택)"></textarea></div>
@@ -503,19 +491,23 @@ function openDayModal(ds){
 function closeDayModal(){document.getElementById('dayModal').classList.remove('open');}
 function openAddFromDay(){closeDayModal();openAdd(0,null,dayModalDate);}
 
-function adjustAmt(delta){
-  const el=document.getElementById('fAmtIncl');
-  const cur=parseInt(el.value||'0');
-  const next=Math.max(0,cur+delta);
-  el.value=next;
-  updateVatPreview();
+function evalAmt(str){
+  // +,-,*,/ 만 허용해서 eval 안전하게 사용
+  const clean=(str||'').replace(/[^0-9+\-*/().\s]/g,'').trim();
+  if(!clean) return 0;
+  try{
+    const result=Function('"use strict";return ('+clean+')')();
+    return (isFinite(result)&&result>=0)?Math.round(result):0;
+  }catch(e){return 0;}
 }
 function updateVatPreview(){
-  const v=parseInt(document.getElementById('fAmtIncl').value||'0');
+  const raw=document.getElementById('fAmtIncl').value||'';
   const p=document.getElementById('vatPreview');
-  if(!v||v<=0){p.innerHTML='<span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span>';return;}
+  if(!raw.trim()){p.innerHTML='<span>예: 35000+10600 또는 99000</span>';return;}
+  const v=evalAmt(raw);
+  if(!v||v<=0){p.innerHTML='<span style="color:#A32D2D">계산 오류 — 숫자와 +−×÷만 입력하세요</span>';return;}
   const excl=exclFromIncl(v);
-  p.innerHTML=`부가세 제외 <strong>${fmt(excl)}</strong> &nbsp;·&nbsp; 부가세 <span style="color:#aaa">${fmt(v-excl)}</span>`;
+  p.innerHTML=`= <strong style="color:#185FA5">${fmt(v)}</strong> &nbsp;·&nbsp; 부가세 제외 <strong>${fmt(excl)}</strong> &nbsp;·&nbsp; 부가세 <span style="color:#aaa">${fmt(v-excl)}</span>`;
 }
 function openAdd(mi,bi,date){
   editingId=null;
@@ -546,7 +538,7 @@ function updateBranchSel(){const mi=parseInt(document.getElementById('fMgr').val
 
 async function saveEntry(){
   const date=document.getElementById('fDate').value,mi=parseInt(document.getElementById('fMgr').value),bi=parseInt(document.getElementById('fBranch').value);
-  const inclVal=parseInt(document.getElementById('fAmtIncl').value||'0'),memo=document.getElementById('fMemo').value.trim();
+  const inclVal=evalAmt(document.getElementById('fAmtIncl').value||'0'),memo=document.getElementById('fMemo').value.trim();
   if(!date||!inclVal||inclVal<=0){alert('날짜와 금액을 입력해 주세요.');return;}
   const amtExcl=exclFromIncl(inclVal);
   if(editingId!==null){const idx=entries.findIndex(e=>e.id===editingId);if(idx>=0)entries[idx]={...entries[idx],date,mi,bi,amt:amtExcl,memo};}
