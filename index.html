@@ -105,6 +105,10 @@ h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;
 .btn-save:hover{background:#0C447C}
 .btn-del{font-size:13px;padding:8px 14px;background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;border-radius:8px;cursor:pointer;margin-right:auto}
 .btn-del:hover{background:#fad7d7}
+.calc-btn{font-size:12px;padding:5px 7px;border:1px solid #e0e0de;border-radius:7px;background:#fff;color:#666;cursor:pointer;white-space:nowrap;flex-shrink:0}
+.calc-btn:hover{background:#f5f5f4}
+.calc-btn.plus{border-color:#B5D4F4;background:#E6F1FB;color:#185FA5}
+.calc-btn.plus:hover{background:#d0e8f8}
 .cal-wrap{background:#fff;border:0.5px solid #e5e5e3;border-radius:10px;overflow:hidden}
 .cal-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid #f0f0ef}
 .cal-nav{background:none;border:none;cursor:pointer;font-size:18px;color:#888;padding:2px 8px;border-radius:6px}
@@ -162,13 +166,18 @@ h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;
     <div class="field"><label>날짜</label><input type="date" id="fDate"/></div>
     <div class="field"><label>담당자</label><select id="fMgr" onchange="updateBranchSel()"></select></div>
     <div class="field"><label>지점</label><select id="fBranch"></select></div>
-    <div class="field">
-      <label>인원수 <span style="font-size:11px;color:#aaa">(인당 33,000원 포함 자동계산)</span></label>
-      <input type="number" id="fPeople" placeholder="입력 시 금액 자동 계산" min="1" step="1" oninput="autoCalc()"/>
-    </div>
+
     <div class="field">
       <label>지출금액 <span style="color:#185FA5;font-weight:600">(부가세 포함, 원)</span></label>
-      <input type="number" id="fAmtIncl" placeholder="예: 99,000" min="0" step="1000" oninput="updateVatPreview()"/>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button type="button" class="calc-btn" onclick="adjustAmt(-1000)">−1천</button>
+        <button type="button" class="calc-btn" onclick="adjustAmt(-5000)">−5천</button>
+        <button type="button" class="calc-btn" onclick="adjustAmt(-10000)">−1만</button>
+        <input type="number" id="fAmtIncl" placeholder="직접 입력" min="0" step="1000" oninput="updateVatPreview()" style="flex:1"/>
+        <button type="button" class="calc-btn plus" onclick="adjustAmt(10000)">+1만</button>
+        <button type="button" class="calc-btn plus" onclick="adjustAmt(5000)">+5천</button>
+        <button type="button" class="calc-btn plus" onclick="adjustAmt(1000)">+1천</button>
+      </div>
       <div class="vat-preview" id="vatPreview"><span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span></div>
     </div>
     <div class="field"><label>메모</label><textarea id="fMemo" placeholder="방문 메모 (선택)"></textarea></div>
@@ -200,13 +209,13 @@ const exclFromIncl=incl=>Math.round(incl/1.1);
 const inclFromExcl=excl=>Math.round(excl*1.1);
 
 const MANAGERS=[
-  {id:0,name:'허지안 책임',initials:'HJ',av:'av-a',dotCls:'dot-a',chipColor:'#185FA5',chipBg:'#E6F1FB',
+  {id:0,name:'허지안',initials:'HJ',av:'av-a',dotCls:'dot-a',chipColor:'#185FA5',chipBg:'#E6F1FB',
    branches:['수원지점','FSV경기팀','원주지점','남부지점','OP팀','동부지점','청주지점'],
    budgets:[180000,90000,120000,90000,90000,120000,90000]},
-  {id:1,name:'김택수 책임',initials:'KT',av:'av-b',dotCls:'dot-b',chipColor:'#085041',chipBg:'#E1F5EE',
+  {id:1,name:'김택수',initials:'KT',av:'av-b',dotCls:'dot-b',chipColor:'#085041',chipBg:'#E1F5EE',
    branches:['인천지점','하이퍼팀','전주지점','대전지점','서부특판지점'],
    budgets:[120000,90000,120000,120000,90000]},
-  {id:2,name:'김종민 선임',initials:'KJ',av:'av-c',dotCls:'dot-c',chipColor:'#633806',chipBg:'#FAEEDA',
+  {id:2,name:'김종민',initials:'KJ',av:'av-c',dotCls:'dot-c',chipColor:'#633806',chipBg:'#FAEEDA',
    branches:['일산지점','대구지점','FSV서부팀','구미지점','서울특판지점'],
    budgets:[120000,90000,90000,120000,90000]},
 ];
@@ -223,34 +232,73 @@ function setSyncStatus(state,txt){
 }
 
 // ── Google Sheets 연동 (Apps Script 배포 URL 필요) ──
-async function loadData(){
-  try{
+// ── 데이터 로드: jsonp 방식으로 CORS 우회 ──
+function loadData(){
+  return new Promise((resolve)=>{
     setSyncStatus('loading','불러오는 중...');
-    const r=await fetch(SHEET_URL+'?action=load');
-    if(!r.ok) throw new Error();
-    const d=await r.json();
-    entries=d.entries||[]; visited=d.visited||{};
-    nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;
-    setSyncStatus('ok','실시간 공유 중');
-  }catch(e){
-    // 로컬 폴백
-    try{const s=localStorage.getItem('corpcard_v3');if(s){const p=JSON.parse(s);entries=p.entries||[];visited=p.visited||{};nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;}}catch(_){}
-    setSyncStatus('err','오프라인 모드 (로컬 저장)');
-  }
+    const cbName='_cb'+Date.now();
+    const script=document.createElement('script');
+    const timeout=setTimeout(()=>{
+      // 타임아웃 시 로컬 폴백
+      loadLocal();
+      setSyncStatus('err','오프라인 모드 (로컬 저장)');
+      cleanup();
+      resolve();
+    },8000);
+    window[cbName]=function(d){
+      clearTimeout(timeout);
+      if(d&&Array.isArray(d.entries)){
+        entries=d.entries; visited=d.visited||{};
+        nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;
+        saveLocal(); // 로컬에도 백업
+        setSyncStatus('ok','실시간 공유 중');
+      } else {
+        loadLocal();
+        setSyncStatus('err','오프라인 모드 (로컬 저장)');
+      }
+      cleanup();
+      resolve();
+    };
+    function cleanup(){ delete window[cbName]; if(script.parentNode) script.parentNode.removeChild(script); }
+    script.src=SHEET_URL+'?callback='+cbName;
+    script.onerror=()=>{ clearTimeout(timeout); loadLocal(); setSyncStatus('err','오프라인 모드'); cleanup(); resolve(); };
+    document.head.appendChild(script);
+  });
 }
-async function saveData(){
-  setSyncStatus('loading','저장 중...');
-  // 로컬 항상 저장
-  try{localStorage.setItem('corpcard_v3',JSON.stringify({entries,visited}));}catch(_){}
+
+function loadLocal(){
   try{
-    await fetch(SHEET_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',entries,visited})});
+    const s=localStorage.getItem('corpcard_v3');
+    if(s){const p=JSON.parse(s);entries=p.entries||[];visited=p.visited||{};nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;}
+  }catch(_){}
+}
+function saveLocal(){
+  try{localStorage.setItem('corpcard_v3',JSON.stringify({entries,visited}));}catch(_){}
+}
+
+async function saveData(){
+  saveLocal(); // 로컬 즉시 저장
+  setSyncStatus('loading','저장 중...');
+  try{
+    // no-cors: 응답은 못 읽지만 서버엔 전달됨
+    await fetch(SHEET_URL,{
+      method:'POST',
+      mode:'no-cors',
+      headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({entries,visited})
+    });
     setSyncStatus('ok','실시간 공유 중');
   }catch(e){ setSyncStatus('err','로컬 저장됨 (서버 미연결)'); }
 }
 
 async function init(){
   await loadData(); render();
-  setInterval(async()=>{const p=JSON.stringify({entries,visited});await loadData();if(JSON.stringify({entries,visited})!==p)render();},30000);
+  // 30초마다 새 데이터 있으면 반영 (폴링)
+  setInterval(async()=>{
+    const prevE=JSON.stringify(entries), prevV=JSON.stringify(visited);
+    await loadData();
+    if(JSON.stringify(entries)!==prevE||JSON.stringify(visited)!==prevV) render();
+  },30000);
 }
 
 const visitKey=(mi,bi)=>`${mi}-${bi}`;
@@ -311,7 +359,7 @@ function renderManagers(){
       const dHtml=brE.length?brE.map(e=>`
         <div class="entry-row">
           <div class="entry-info">
-            <div class="entry-date-line">${e.date}${e.people?' · '+e.people+'명':''}</div>
+            <div class="entry-date-line">${e.date}</div>
             <div class="entry-memo">${e.memo||'(메모 없음)'}</div>
           </div>
           <div class="entry-amts"><div class="entry-amt-incl">${fmt(inclFromExcl(e.amt))}</div><div class="entry-amt-excl">제외 ${fmt(e.amt)}</div></div>
@@ -430,9 +478,9 @@ function renderCalendar(){
     html+=`<div class="cal-day ${it?'today':''}" onclick="openDayModal('${ds}')"><div class="day-num">${d}</div>${dots}</div>`;
   }
   html+=`</div><div class="cal-legend">
-    <div class="leg-item"><div class="leg-dot" style="background:#E6F1FB;border:1px solid #B5D4F4"></div>허지안 책임</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></div>김택수 책임</div>
-    <div class="leg-item"><div class="leg-dot" style="background:#FAEEDA;border:1px solid #FAC775"></div>김종민 선임</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E6F1FB;border:1px solid #B5D4F4"></div>허지안</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></div>김택수</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FAEEDA;border:1px solid #FAC775"></div>김종민</div>
   </div></div>`;
   document.getElementById('tabCalendar').innerHTML=html;
 }
@@ -443,7 +491,7 @@ function openDayModal(ds){
   document.getElementById('dayModalTitle').textContent=ds+' 지출 내역';
   const de=entries.filter(e=>e.date===ds).sort((a,b)=>a.mi-b.mi);
   let html=de.length?de.map(e=>{const m=MANAGERS[e.mi];return`<div class="entry-row">
-    <div class="entry-info"><div class="entry-date-line">${m.name} · ${m.branches[e.bi]}${e.people?' · '+e.people+'명':''}</div><div class="entry-memo">${e.memo||'(메모 없음)'}</div></div>
+    <div class="entry-info"><div class="entry-date-line">${m.name} · ${m.branches[e.bi]}</div><div class="entry-memo">${e.memo||'(메모 없음)'}</div></div>
     <div class="entry-amts"><div class="entry-amt-incl">${fmt(inclFromExcl(e.amt))}</div><div class="entry-amt-excl">제외 ${fmt(e.amt)}</div></div>
     <div class="entry-actions">
       <button class="icon-btn" onclick="closeDayModal();openEdit(${e.id})"><i class="ti ti-edit"></i></button>
@@ -455,6 +503,13 @@ function openDayModal(ds){
 function closeDayModal(){document.getElementById('dayModal').classList.remove('open');}
 function openAddFromDay(){closeDayModal();openAdd(0,null,dayModalDate);}
 
+function adjustAmt(delta){
+  const el=document.getElementById('fAmtIncl');
+  const cur=parseInt(el.value||'0');
+  const next=Math.max(0,cur+delta);
+  el.value=next;
+  updateVatPreview();
+}
 function updateVatPreview(){
   const v=parseInt(document.getElementById('fAmtIncl').value||'0');
   const p=document.getElementById('vatPreview');
@@ -462,7 +517,6 @@ function updateVatPreview(){
   const excl=exclFromIncl(v);
   p.innerHTML=`부가세 제외 <strong>${fmt(excl)}</strong> &nbsp;·&nbsp; 부가세 <span style="color:#aaa">${fmt(v-excl)}</span>`;
 }
-function autoCalc(){const p=parseInt(document.getElementById('fPeople').value||'0');if(p>0){document.getElementById('fAmtIncl').value=p*PER_HEAD_INCL;updateVatPreview();}}
 function openAdd(mi,bi,date){
   editingId=null;
   document.getElementById('modalTitle').textContent='지출 등록';
@@ -470,7 +524,7 @@ function openAdd(mi,bi,date){
   document.getElementById('fDate').value=date||todayStr;
   populateMgrSel(mi||0);
   if(bi!=null)setTimeout(()=>{document.getElementById('fBranch').value=bi;},0);
-  document.getElementById('fAmtIncl').value='';document.getElementById('fPeople').value='';document.getElementById('fMemo').value='';
+  document.getElementById('fAmtIncl').value='';document.getElementById('fMemo').value='';
   document.getElementById('vatPreview').innerHTML='<span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span>';
   document.getElementById('modal').classList.add('open');
 }
@@ -483,7 +537,7 @@ function openEdit(id){
   populateMgrSel(e.mi);
   setTimeout(()=>{document.getElementById('fBranch').value=e.bi;},0);
   document.getElementById('fAmtIncl').value=inclFromExcl(e.amt);
-  document.getElementById('fPeople').value=e.people||'';document.getElementById('fMemo').value=e.memo||'';
+  document.getElementById('fMemo').value=e.memo||'';
   updateVatPreview();document.getElementById('modal').classList.add('open');
 }
 function closeModal(){document.getElementById('modal').classList.remove('open');editingId=null;}
@@ -492,11 +546,11 @@ function updateBranchSel(){const mi=parseInt(document.getElementById('fMgr').val
 
 async function saveEntry(){
   const date=document.getElementById('fDate').value,mi=parseInt(document.getElementById('fMgr').value),bi=parseInt(document.getElementById('fBranch').value);
-  const inclVal=parseInt(document.getElementById('fAmtIncl').value||'0'),people=parseInt(document.getElementById('fPeople').value||'0')||undefined,memo=document.getElementById('fMemo').value.trim();
+  const inclVal=parseInt(document.getElementById('fAmtIncl').value||'0'),memo=document.getElementById('fMemo').value.trim();
   if(!date||!inclVal||inclVal<=0){alert('날짜와 금액을 입력해 주세요.');return;}
   const amtExcl=exclFromIncl(inclVal);
-  if(editingId!==null){const idx=entries.findIndex(e=>e.id===editingId);if(idx>=0)entries[idx]={...entries[idx],date,mi,bi,amt:amtExcl,people,memo};}
-  else entries.push({id:nextId++,date,mi,bi,amt:amtExcl,people,memo});
+  if(editingId!==null){const idx=entries.findIndex(e=>e.id===editingId);if(idx>=0)entries[idx]={...entries[idx],date,mi,bi,amt:amtExcl,memo};}
+  else entries.push({id:nextId++,date,mi,bi,amt:amtExcl,memo});
   closeModal();await saveData();render();
 }
 async function deleteFromModal(){if(!confirm('삭제할까요?'))return;entries=entries.filter(e=>e.id!==editingId);closeModal();await saveData();render();}
