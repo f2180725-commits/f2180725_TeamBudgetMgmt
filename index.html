@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>법인카드 예산 관리 — 동아오츠카</title>
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@2.44.0/tabler-icons.min.css">
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:-apple-system,BlinkMacSystemFont,'Segoe UI','Noto Sans KR',sans-serif;background:#f5f5f4;color:#1a1a1a;min-height:100vh}
+.wrap{max-width:780px;margin:0 auto;padding:20px 16px 60px}
+.top-bar{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px}
+h1{font-size:18px;font-weight:600;color:#1a1a1a;display:flex;align-items:center;gap:7px}
+.sync-status{font-size:11px;color:#888;display:flex;align-items:center;gap:5px}
+.sync-dot{width:7px;height:7px;border-radius:50%;background:#639922;display:inline-block}
+.sync-dot.loading{background:#BA7517;animation:pulse 1s infinite}
+.sync-dot.err{background:#A32D2D}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+.notice{font-size:12px;color:#666;background:#f0f0ef;padding:8px 13px;border-radius:8px;margin-bottom:14px;display:flex;align-items:center;gap:7px;border:0.5px solid #e0e0de}
+.summary-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:10px}
+.summary-grid2{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-bottom:14px}
+.stat{background:#fff;border-radius:8px;padding:12px 13px;border:0.5px solid #e5e5e3}
+.stat-label{font-size:11px;color:#888;margin-bottom:4px}
+.stat-value{font-size:16px;font-weight:600;color:#1a1a1a}
+.stat-sub{font-size:11px;color:#aaa;margin-top:2px}
+.s-ok .stat-value{color:#3B6D11}.s-warn .stat-value{color:#BA7517}.s-over .stat-value{color:#A32D2D}
+.stat-progress{margin-top:6px;height:3px;background:#f0f0ef;border-radius:999px}
+.stat-progress-bar{height:3px;border-radius:999px;background:#639922}
+.visit-row{display:flex;align-items:center;gap:10px;margin-bottom:14px;padding:10px 14px;background:#fff;border-radius:10px;border:0.5px solid #e5e5e3}
+.visit-label{font-size:12px;color:#888;white-space:nowrap}
+.visit-bar-bg{flex:1;height:7px;background:#f0f0ef;border-radius:999px;overflow:hidden}
+.visit-bar{height:7px;border-radius:999px;background:#185FA5;transition:width .4s}
+.visit-count{font-size:12px;font-weight:600;color:#1a1a1a;white-space:nowrap}
+.tab-bar{display:flex;border-bottom:1px solid #e5e5e3;margin-bottom:16px;background:#fff;border-radius:10px 10px 0 0;padding:0 4px}
+.tab{padding:10px 16px;font-size:13px;cursor:pointer;color:#888;border-bottom:2px solid transparent;transition:all .15s}
+.tab.active{color:#185FA5;border-bottom:2px solid #185FA5;font-weight:600}
+.mgr-card{background:#fff;border:0.5px solid #e5e5e3;border-radius:10px;margin-bottom:10px;overflow:hidden}
+.mgr-head{display:flex;justify-content:space-between;align-items:center;padding:12px 14px;cursor:pointer;user-select:none}
+.mgr-head:hover{background:#fafaf9}
+.mgr-left{display:flex;align-items:center;gap:9px}
+.av{width:34px;height:34px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:600;flex-shrink:0}
+.av-a{background:#E6F1FB;color:#0C447C}.av-b{background:#E1F5EE;color:#085041}.av-c{background:#FAEEDA;color:#633806}
+.mgr-name{font-size:14px;font-weight:600;color:#1a1a1a}
+.mgr-meta{font-size:11px;color:#888;margin-top:1px}
+.badge{font-size:11px;padding:3px 8px;border-radius:999px;font-weight:500}
+.b-ok{background:#EAF3DE;color:#3B6D11}.b-warn{background:#FAEEDA;color:#633806}.b-over{background:#FCEBEB;color:#A32D2D}
+.b-visit{background:#E6F1FB;color:#185FA5}
+.chev{font-size:16px;color:#aaa;transition:transform .18s}
+.chev.open{transform:rotate(180deg)}
+.mgr-body{display:none}.mgr-body.open{display:block}
+.pb-wrap{padding:8px 14px;border-bottom:0.5px solid #f0f0ef}
+.pb-labels{display:flex;justify-content:space-between;font-size:11px;color:#888;margin-bottom:5px}
+.pb-bg{height:5px;background:#f0f0ef;border-radius:999px}
+.pb{height:5px;border-radius:999px}.pb-g{background:#639922}.pb-y{background:#BA7517}.pb-r{background:#E24B4A}
+.br-table{width:100%;border-collapse:collapse;font-size:12px}
+.br-table th{padding:7px 10px;text-align:left;color:#888;font-weight:400;font-size:11px;border-bottom:0.5px solid #f0f0ef;background:#fafaf9}
+.br-table th.r,.br-table td.r{text-align:right}
+.br-table td{padding:7px 10px;border-bottom:0.5px solid #f5f5f4;color:#1a1a1a;vertical-align:middle}
+.br-table tr.sub-total td{background:#fafaf9;font-weight:600}
+.br-table tr.visited-row td{color:#aaa}
+.pos{color:#3B6D11}.neg{color:#A32D2D}
+.log-btn{font-size:11px;padding:2px 7px;border-radius:6px;cursor:pointer;border:0.5px solid #e5e5e3;background:#fff;color:#666}
+.log-btn:hover{background:#f5f5f4}
+.detail-panel{background:#fafaf9;border-top:0.5px solid #f0f0ef;padding:10px 14px}
+.entry-row{display:flex;justify-content:space-between;align-items:center;padding:7px 10px;background:#fff;border:0.5px solid #e5e5e3;border-radius:8px;margin-bottom:4px;font-size:12px;gap:8px}
+.entry-info{flex:1;min-width:0}
+.entry-date-line{font-size:11px;color:#888}
+.entry-memo{color:#1a1a1a;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.entry-amts{text-align:right;flex-shrink:0}
+.entry-amt-incl{font-weight:600;color:#1a1a1a;font-size:12px}
+.entry-amt-excl{font-size:11px;color:#aaa}
+.entry-actions{display:flex;gap:4px;flex-shrink:0}
+.icon-btn{background:none;border:none;cursor:pointer;font-size:15px;color:#aaa;padding:2px 3px;border-radius:4px}
+.icon-btn:hover{color:#1a1a1a}
+.add-trigger{display:flex;align-items:center;gap:6px;padding:9px 14px;font-size:12px;color:#185FA5;cursor:pointer;border-top:0.5px solid #f0f0ef}
+.add-trigger:hover{background:#fafaf9}
+.vc{width:20px;height:20px;border-radius:50%;border:1.5px solid #ddd;cursor:pointer;display:flex;align-items:center;justify-content:center;transition:all .15s;flex-shrink:0;background:#fff}
+.vc:hover{border-color:#185FA5}
+.vc.checked{background:#185FA5;border-color:#185FA5}
+.vc.checked i{color:#fff}
+.vc i{font-size:12px;color:transparent}
+.branch-name-cell{display:flex;align-items:center;gap:7px}
+.branch-name{transition:color .15s}
+.visited-row .branch-name{text-decoration:line-through;color:#bbb}
+.visited-badge{font-size:10px;padding:1px 6px;border-radius:999px;background:#E6F1FB;color:#185FA5}
+.unvisited-chips{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:18px}
+.chip{font-size:12px;padding:6px 12px;border-radius:999px;border:0.5px solid #e5e5e3;background:#fff;color:#1a1a1a;display:flex;align-items:center;gap:6px}
+.chip-dot{width:7px;height:7px;border-radius:50%;flex-shrink:0}
+.section-hd{font-size:13px;font-weight:600;color:#888;margin-bottom:8px;display:flex;align-items:center;gap:7px}
+.modal-overlay{display:none;position:fixed;inset:0;background:rgba(0,0,0,.5);z-index:1000;align-items:center;justify-content:center}
+.modal-overlay.open{display:flex}
+.modal{background:#fff;border-radius:12px;border:0.5px solid #e0e0de;padding:22px;width:360px;max-width:94vw;max-height:90vh;overflow-y:auto;box-shadow:0 8px 32px rgba(0,0,0,.12)}
+.modal h3{font-size:16px;font-weight:600;margin-bottom:16px;color:#1a1a1a}
+.field{margin-bottom:12px}
+.field label{display:block;font-size:12px;color:#666;margin-bottom:4px;font-weight:500}
+.field input,.field select,.field textarea{width:100%;font-size:13px;padding:8px 11px;border:1px solid #e0e0de;border-radius:8px;background:#fff;color:#1a1a1a;outline:none}
+.field input:focus,.field select:focus,.field textarea:focus{border-color:#185FA5}
+.field textarea{resize:vertical;height:54px}
+.vat-preview{margin-top:5px;font-size:12px;color:#666;padding:7px 11px;background:#f5f5f4;border-radius:7px;min-height:30px}
+.vat-preview span{color:#aaa}
+.modal-actions{display:flex;justify-content:flex-end;gap:8px;margin-top:16px}
+.btn-ghost{font-size:13px;padding:8px 16px;background:#fff;border:1px solid #e0e0de;color:#666;border-radius:8px;cursor:pointer}
+.btn-ghost:hover{background:#f5f5f4}
+.btn-save{font-size:13px;padding:8px 18px;background:#185FA5;color:#fff;border:none;border-radius:8px;cursor:pointer;font-weight:500}
+.btn-save:hover{background:#0C447C}
+.btn-del{font-size:13px;padding:8px 14px;background:#FCEBEB;color:#A32D2D;border:1px solid #F7C1C1;border-radius:8px;cursor:pointer;margin-right:auto}
+.btn-del:hover{background:#fad7d7}
+.cal-wrap{background:#fff;border:0.5px solid #e5e5e3;border-radius:10px;overflow:hidden}
+.cal-header{display:flex;align-items:center;justify-content:space-between;padding:10px 14px;border-bottom:0.5px solid #f0f0ef}
+.cal-nav{background:none;border:none;cursor:pointer;font-size:18px;color:#888;padding:2px 8px;border-radius:6px}
+.cal-nav:hover{background:#f5f5f4}
+.cal-title{font-size:14px;font-weight:600;color:#1a1a1a}
+.cal-grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cal-dow{text-align:center;font-size:11px;color:#aaa;padding:7px 0;border-bottom:0.5px solid #f0f0ef;background:#fafaf9}
+.cal-day{min-height:62px;padding:4px 3px;border-right:0.5px solid #f5f5f4;border-bottom:0.5px solid #f5f5f4;cursor:pointer}
+.cal-day:nth-child(7n){border-right:none}
+.cal-day:hover{background:#fafaf9}
+.cal-day.empty{background:#fafaf9;cursor:default}
+.cal-day.today .day-num{background:#185FA5;color:#fff;border-radius:50%}
+.day-num{font-size:12px;color:#aaa;width:20px;height:20px;display:flex;align-items:center;justify-content:center;margin-bottom:2px}
+.day-dot{font-size:10px;border-radius:3px;padding:1px 3px;margin-bottom:1px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dot-a{background:#E6F1FB;color:#0C447C}.dot-b{background:#E1F5EE;color:#085041}.dot-c{background:#FAEEDA;color:#633806}
+.cal-legend{display:flex;gap:12px;padding:8px 14px;border-top:0.5px solid #f0f0ef;flex-wrap:wrap}
+.leg-item{display:flex;align-items:center;gap:5px;font-size:11px;color:#888}
+.leg-dot{width:9px;height:9px;border-radius:2px}
+@media(max-width:540px){
+  .summary-grid,.summary-grid2{grid-template-columns:repeat(2,1fr)}
+  .summary-grid .stat:last-child,.summary-grid2 .stat:last-child{grid-column:span 2}
+  .br-table{font-size:11px}
+  .br-table th,.br-table td{padding:6px 7px}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <div class="top-bar">
+    <h1><i class="ti ti-credit-card" style="font-size:19px"></i>법인카드 예산 관리</h1>
+    <div class="sync-status"><span class="sync-dot loading" id="syncDot"></span><span id="syncTxt">연결 중...</span></div>
+  </div>
+  <div class="notice"><i class="ti ti-users" style="font-size:13px"></i>공유 데이터 — 이 링크를 받은 모든 사용자가 동일한 내역을 보고 수정합니다</div>
+  <div class="summary-grid" id="sumGrid"></div>
+  <div class="summary-grid2" id="visitGrid"></div>
+  <div class="visit-row">
+    <span class="visit-label"><i class="ti ti-map-pin" style="font-size:13px;vertical-align:-1px;margin-right:3px"></i>방문 진행</span>
+    <div class="visit-bar-bg"><div class="visit-bar" id="visitBar" style="width:0%"></div></div>
+    <span class="visit-count" id="visitCount">0 / 27</span>
+  </div>
+  <div class="tab-bar">
+    <div class="tab active" onclick="showTab('manager')">담당자별</div>
+    <div class="tab" onclick="showTab('calendar')">캘린더</div>
+    <div class="tab" onclick="showTab('unvisited')">미방문 현황</div>
+  </div>
+  <div id="tabManager"></div>
+  <div id="tabCalendar" style="display:none"></div>
+  <div id="tabUnvisited" style="display:none"></div>
+</div>
+
+<!-- 등록/수정 모달 -->
+<div class="modal-overlay" id="modal">
+  <div class="modal">
+    <h3 id="modalTitle">지출 등록</h3>
+    <div class="field"><label>날짜</label><input type="date" id="fDate"/></div>
+    <div class="field"><label>담당자</label><select id="fMgr" onchange="updateBranchSel()"></select></div>
+    <div class="field"><label>지점</label><select id="fBranch"></select></div>
+    <div class="field">
+      <label>인원수 <span style="font-size:11px;color:#aaa">(인당 33,000원 포함 자동계산)</span></label>
+      <input type="number" id="fPeople" placeholder="입력 시 금액 자동 계산" min="1" step="1" oninput="autoCalc()"/>
+    </div>
+    <div class="field">
+      <label>지출금액 <span style="color:#185FA5;font-weight:600">(부가세 포함, 원)</span></label>
+      <input type="number" id="fAmtIncl" placeholder="예: 99,000" min="0" step="1000" oninput="updateVatPreview()"/>
+      <div class="vat-preview" id="vatPreview"><span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span></div>
+    </div>
+    <div class="field"><label>메모</label><textarea id="fMemo" placeholder="방문 메모 (선택)"></textarea></div>
+    <div class="modal-actions">
+      <button class="btn-del" id="btnDel" style="display:none" onclick="deleteFromModal()"><i class="ti ti-trash" style="font-size:13px;vertical-align:-1px"></i> 삭제</button>
+      <button class="btn-ghost" onclick="closeModal()">취소</button>
+      <button class="btn-save" onclick="saveEntry()">저장</button>
+    </div>
+  </div>
+</div>
+
+<!-- 날짜 모달 -->
+<div class="modal-overlay" id="dayModal">
+  <div class="modal" style="width:420px">
+    <h3 id="dayModalTitle"></h3>
+    <div id="dayModalBody" style="margin-bottom:4px"></div>
+    <div class="modal-actions">
+      <button class="btn-ghost" onclick="closeDayModal()">닫기</button>
+      <button class="btn-save" onclick="openAddFromDay()"><i class="ti ti-plus" style="font-size:13px;vertical-align:-1px"></i> 지출 등록</button>
+    </div>
+  </div>
+</div>
+
+<script>
+const PER_HEAD_INCL=33000;
+const SHEET_URL='YOUR_GOOGLE_APPS_SCRIPT_URL'; // 아래 안내 참고
+const fmt=v=>Math.round(v).toLocaleString('ko-KR')+'원';
+const exclFromIncl=incl=>Math.round(incl/1.1);
+const inclFromExcl=excl=>Math.round(excl*1.1);
+
+const MANAGERS=[
+  {id:0,name:'허지안 책임',initials:'HJ',av:'av-a',dotCls:'dot-a',chipColor:'#185FA5',chipBg:'#E6F1FB',
+   branches:['수원지점','FSV경기팀','원주지점','남부지점','OP팀','동부지점','청주지점'],
+   budgets:[180000,90000,120000,90000,90000,120000,90000]},
+  {id:1,name:'김택수 책임',initials:'KT',av:'av-b',dotCls:'dot-b',chipColor:'#085041',chipBg:'#E1F5EE',
+   branches:['인천지점','하이퍼팀','전주지점','대전지점','서부특판지점'],
+   budgets:[120000,90000,120000,120000,90000]},
+  {id:2,name:'김종민 선임',initials:'KJ',av:'av-c',dotCls:'dot-c',chipColor:'#633806',chipBg:'#FAEEDA',
+   branches:['일산지점','대구지점','FSV서부팀','구미지점','서울특판지점'],
+   budgets:[120000,90000,90000,120000,90000]},
+];
+const TOTAL_BRANCHES=MANAGERS.reduce((s,m)=>s+m.branches.length,0);
+
+let entries=[],visited={},nextId=1;
+let editingId=null,dayModalDate=null,currentTab='manager';
+let calYear=new Date().getFullYear(),calMonth=new Date().getMonth();
+const todayStr=new Date().toISOString().slice(0,10);
+
+function setSyncStatus(state,txt){
+  document.getElementById('syncDot').className='sync-dot'+(state==='ok'?'':state==='loading'?' loading':' err');
+  document.getElementById('syncTxt').textContent=txt;
+}
+
+// ── Google Sheets 연동 (Apps Script 배포 URL 필요) ──
+async function loadData(){
+  try{
+    setSyncStatus('loading','불러오는 중...');
+    const r=await fetch(SHEET_URL+'?action=load');
+    if(!r.ok) throw new Error();
+    const d=await r.json();
+    entries=d.entries||[]; visited=d.visited||{};
+    nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;
+    setSyncStatus('ok','실시간 공유 중');
+  }catch(e){
+    // 로컬 폴백
+    try{const s=localStorage.getItem('corpcard_v3');if(s){const p=JSON.parse(s);entries=p.entries||[];visited=p.visited||{};nextId=entries.length?Math.max(...entries.map(e=>e.id))+1:1;}}catch(_){}
+    setSyncStatus('err','오프라인 모드 (로컬 저장)');
+  }
+}
+async function saveData(){
+  setSyncStatus('loading','저장 중...');
+  // 로컬 항상 저장
+  try{localStorage.setItem('corpcard_v3',JSON.stringify({entries,visited}));}catch(_){}
+  try{
+    await fetch(SHEET_URL,{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({action:'save',entries,visited})});
+    setSyncStatus('ok','실시간 공유 중');
+  }catch(e){ setSyncStatus('err','로컬 저장됨 (서버 미연결)'); }
+}
+
+async function init(){
+  await loadData(); render();
+  setInterval(async()=>{const p=JSON.stringify({entries,visited});await loadData();if(JSON.stringify({entries,visited})!==p)render();},30000);
+}
+
+const visitKey=(mi,bi)=>`${mi}-${bi}`;
+const isVisited=(mi,bi)=>!!visited[visitKey(mi,bi)];
+const getBranchSpentExcl=(mi,bi)=>entries.filter(e=>e.mi===mi&&e.bi===bi).reduce((s,e)=>s+e.amt,0);
+const getMgrBudget=mi=>MANAGERS[mi].budgets.reduce((s,b)=>s+b,0);
+const getMgrSpentExcl=mi=>entries.filter(e=>e.mi===mi).reduce((s,e)=>s+e.amt,0);
+const getTotalBudget=()=>MANAGERS.reduce((s,m)=>s+m.budgets.reduce((b,v)=>b+v,0),0);
+const getTotalSpentExcl=()=>entries.reduce((s,e)=>s+e.amt,0);
+const getTotalVisited=()=>Object.keys(visited).filter(k=>visited[k]).length;
+const getUnvisitedBudget=()=>MANAGERS.reduce((s,m,mi)=>s+m.budgets.reduce((b,bud,bi)=>b+(isVisited(mi,bi)?0:bud),0),0);
+const badgeCls=p=>p>=100?'b-over':p>=80?'b-warn':'b-ok';
+const pbCls=p=>p>=100?'pb-r':p>=80?'pb-y':'pb-g';
+const statCls=r=>r<0?'s-over':r<50000?'s-warn':'s-ok';
+
+async function toggleVisit(mi,bi,e){e.stopPropagation();visited[visitKey(mi,bi)]=!isVisited(mi,bi);await saveData();render();}
+
+function showTab(t){
+  currentTab=t;
+  document.querySelectorAll('.tab').forEach((el,i)=>el.classList.toggle('active',['manager','calendar','unvisited'][i]===t));
+  document.getElementById('tabManager').style.display=t==='manager'?'':'none';
+  document.getElementById('tabCalendar').style.display=t==='calendar'?'':'none';
+  document.getElementById('tabUnvisited').style.display=t==='unvisited'?'':'none';
+  if(t==='calendar')renderCalendar();
+  if(t==='unvisited')renderUnvisited();
+}
+
+function renderSummary(){
+  const tb=getTotalBudget(),ts=getTotalSpentExcl(),tr=tb-ts;
+  document.getElementById('sumGrid').innerHTML=`
+    <div class="stat"><div class="stat-label">총 예산 (부가세 제외)</div><div class="stat-value">${fmt(tb)}</div><div class="stat-sub">포함 ${fmt(inclFromExcl(tb))}</div></div>
+    <div class="stat"><div class="stat-label">총 사용액 (부가세 제외)</div><div class="stat-value">${fmt(ts)}</div><div class="stat-sub">포함 ${fmt(inclFromExcl(ts))}</div></div>
+    <div class="stat ${statCls(tr)}"><div class="stat-label">잔여 예산 (부가세 제외)</div><div class="stat-value">${fmt(tr)}</div><div class="stat-sub">포함 ${fmt(inclFromExcl(tr))}</div></div>`;
+  const vN=getTotalVisited(),uN=TOTAL_BRANCHES-vN,uB=getUnvisitedBudget(),vP=Math.round(vN/TOTAL_BRANCHES*100);
+  document.getElementById('visitGrid').innerHTML=`
+    <div class="stat"><div class="stat-label">방문 완료</div><div class="stat-value" style="color:#185FA5">${vN}개</div><div class="stat-sub">전체 ${TOTAL_BRANCHES}개 중</div></div>
+    <div class="stat"><div class="stat-label">미방문</div><div class="stat-value" style="color:#BA7517">${uN}개</div><div class="stat-sub">남은 예산 ${fmt(uB)}</div></div>
+    <div class="stat"><div class="stat-label">방문 완료율</div><div class="stat-value">${vP}%</div><div class="stat-progress"><div class="stat-progress-bar" style="width:${vP}%"></div></div></div>`;
+  document.getElementById('visitBar').style.width=vP+'%';
+  document.getElementById('visitCount').textContent=`${vN} / ${TOTAL_BRANCHES} 지점`;
+}
+
+function renderManagers(){
+  const container=document.getElementById('tabManager');
+  container.innerHTML='';
+  MANAGERS.forEach((mgr,mi)=>{
+    const mb=getMgrBudget(mi),ms=getMgrSpentExcl(mi),mr=mb-ms;
+    const pct=mb>0?Math.round(ms/mb*100):0;
+    const mV=mgr.branches.filter((_,bi)=>isVisited(mi,bi)).length;
+    const cid='mgc-'+mi;
+    const card=document.createElement('div');
+    card.className='mgr-card';
+    const brRows=mgr.branches.map((br,bi)=>{
+      const budget=mgr.budgets[bi],spent=getBranchSpentExcl(mi,bi),remain=budget-spent;
+      const bpct=budget>0?Math.round(spent/budget*100):0;
+      const vis=isVisited(mi,bi);
+      const brE=entries.filter(e=>e.mi===mi&&e.bi===bi).sort((a,b)=>b.date.localeCompare(a.date));
+      const dHtml=brE.length?brE.map(e=>`
+        <div class="entry-row">
+          <div class="entry-info">
+            <div class="entry-date-line">${e.date}${e.people?' · '+e.people+'명':''}</div>
+            <div class="entry-memo">${e.memo||'(메모 없음)'}</div>
+          </div>
+          <div class="entry-amts"><div class="entry-amt-incl">${fmt(inclFromExcl(e.amt))}</div><div class="entry-amt-excl">제외 ${fmt(e.amt)}</div></div>
+          <div class="entry-actions"><button class="icon-btn" onclick="openEdit(${e.id})"><i class="ti ti-edit"></i></button></div>
+        </div>`).join(''):'<div style="font-size:12px;color:#aaa;padding:4px 0">등록된 지출 없음</div>';
+      return `
+        <tr class="${vis?'visited-row':''}">
+          <td><div class="branch-name-cell">
+            <div class="vc ${vis?'checked':''}" onclick="toggleVisit(${mi},${bi},event)"><i class="ti ti-check"></i></div>
+            <span class="branch-name">${br}</span>
+            ${vis?'<span class="visited-badge">완료</span>':''}
+          </div></td>
+          <td class="r">${fmt(budget)}</td><td class="r">${fmt(inclFromExcl(budget))}</td>
+          <td class="r">${fmt(spent)}</td><td class="r">${fmt(inclFromExcl(spent))}</td>
+          <td class="r ${remain<0?'neg':'pos'}">${fmt(remain)}</td>
+          <td class="r">${bpct}%</td>
+          <td class="r"><button class="log-btn" onclick="toggleDetail('det-${mi}-${bi}')"><i class="ti ti-list" style="font-size:13px"></i></button></td>
+        </tr>
+        <tr id="det-${mi}-${bi}" style="display:none">
+          <td colspan="8" style="padding:0">
+            <div class="detail-panel">
+              <div style="font-size:12px;font-weight:600;color:#888;margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">
+                <span>${br} 지출 내역</span>
+                <button onclick="openAdd(${mi},${bi})" style="font-size:11px;padding:3px 9px;color:#185FA5;border:0.5px solid #B5D4F4;border-radius:6px;background:#E6F1FB;cursor:pointer">+ 등록</button>
+              </div>${dHtml}
+            </div>
+          </td>
+        </tr>`;
+    }).join('');
+    card.innerHTML=`
+      <div class="mgr-head" onclick="toggleCard('${cid}')">
+        <div class="mgr-left">
+          <div class="av ${mgr.av}">${mgr.initials}</div>
+          <div><div class="mgr-name">${mgr.name}</div><div class="mgr-meta">방문 ${mV}/${mgr.branches.length} · 예산 ${fmt(mb)}</div></div>
+        </div>
+        <div style="display:flex;align-items:center;gap:5px">
+          <span class="badge b-visit">${mV}/${mgr.branches.length}</span>
+          <span class="badge ${badgeCls(pct)}">${pct}%</span>
+          <i class="ti ti-chevron-down chev" id="chev-${cid}"></i>
+        </div>
+      </div>
+      <div class="mgr-body" id="${cid}">
+        <div class="pb-wrap">
+          <div class="pb-labels"><span>사용 ${fmt(ms)}</span><span class="${mr<0?'neg':'pos'}">잔여 ${fmt(mr)}</span></div>
+          <div class="pb-bg"><div class="pb ${pbCls(pct)}" style="width:${Math.min(pct,100)}%"></div></div>
+        </div>
+        <div style="overflow-x:auto">
+          <table class="br-table">
+            <thead><tr>
+              <th style="min-width:130px">지점</th>
+              <th class="r">예산<br><span style="font-size:10px">부가세 제외</span></th>
+              <th class="r">예산<br><span style="font-size:10px">포함</span></th>
+              <th class="r">사용액<br><span style="font-size:10px">제외</span></th>
+              <th class="r">사용액<br><span style="font-size:10px">포함</span></th>
+              <th class="r">잔여</th>
+              <th class="r">사용률</th>
+              <th></th>
+            </tr></thead>
+            <tbody>${brRows}</tbody>
+            <tfoot><tr class="sub-total">
+              <td>소계</td>
+              <td class="r">${fmt(mb)}</td><td class="r">${fmt(inclFromExcl(mb))}</td>
+              <td class="r">${fmt(ms)}</td><td class="r">${fmt(inclFromExcl(ms))}</td>
+              <td class="r ${mr<0?'neg':'pos'}">${fmt(mr)}</td>
+              <td class="r">${pct}%</td><td></td>
+            </tr></tfoot>
+          </table>
+        </div>
+        <div class="add-trigger" onclick="openAdd(${mi},null)">
+          <i class="ti ti-plus" style="font-size:14px"></i> 지출 등록
+        </div>
+      </div>`;
+    container.appendChild(card);
+  });
+}
+
+function toggleCard(id){document.getElementById(id).classList.toggle('open');document.getElementById('chev-'+id).classList.toggle('open');}
+function toggleDetail(id){const r=document.getElementById(id);r.style.display=r.style.display==='none'?'table-row':'none';}
+
+function renderUnvisited(){
+  const c=document.getElementById('tabUnvisited');
+  let html='';
+  MANAGERS.forEach((mgr,mi)=>{
+    const uv=mgr.branches.map((br,bi)=>({br,bi,budget:mgr.budgets[bi]})).filter(({bi})=>!isVisited(mi,bi));
+    if(!uv.length)return;
+    const tb=uv.reduce((s,x)=>s+x.budget,0);
+    html+=`<div><div class="section-hd"><div class="av ${mgr.av}" style="width:24px;height:24px;font-size:10px">${mgr.initials}</div>${mgr.name} — 미방문 ${uv.length}개 · 남은 예산 ${fmt(tb)}</div>
+    <div class="unvisited-chips">${uv.map(({br,bi,budget})=>`
+      <div class="chip">
+        <div class="chip-dot" style="background:${mgr.chipBg};border:1px solid ${mgr.chipColor}50"></div>
+        <span>${br}</span><span style="color:#aaa;font-size:11px">${fmt(budget)}</span>
+        <div class="vc" onclick="toggleVisit(${mi},${bi},event)" style="width:18px;height:18px"><i class="ti ti-check" style="font-size:11px"></i></div>
+      </div>`).join('')}
+    </div></div>`;
+  });
+  if(!html)html='<div style="text-align:center;padding:50px 0;color:#888;font-size:14px"><i class="ti ti-circle-check" style="font-size:36px;display:block;margin-bottom:10px;color:#639922"></i>모든 지점 방문 완료!</div>';
+  c.innerHTML=html;
+}
+
+function renderCalendar(){
+  const first=new Date(calYear,calMonth,1).getDay(),days=new Date(calYear,calMonth+1,0).getDate();
+  const mn=['1월','2월','3월','4월','5월','6월','7월','8월','9월','10월','11월','12월'];
+  const dm={};entries.forEach(e=>{if(!dm[e.date])dm[e.date]=[];dm[e.date].push(e);});
+  let html=`<div class="cal-wrap">
+    <div class="cal-header">
+      <button class="cal-nav" onclick="calNav(-1)"><i class="ti ti-chevron-left"></i></button>
+      <span class="cal-title">${calYear}년 ${mn[calMonth]}</span>
+      <button class="cal-nav" onclick="calNav(1)"><i class="ti ti-chevron-right"></i></button>
+    </div><div class="cal-grid">`;
+  ['일','월','화','수','목','금','토'].forEach(d=>html+=`<div class="cal-dow">${d}</div>`);
+  for(let i=0;i<first;i++)html+=`<div class="cal-day empty"></div>`;
+  for(let d=1;d<=days;d++){
+    const ds=`${calYear}-${String(calMonth+1).padStart(2,'0')}-${String(d).padStart(2,'0')}`;
+    const it=ds===todayStr,de=dm[ds]||[];
+    const dots=de.slice(0,4).map(e=>{const m=MANAGERS[e.mi];const s=m.branches[e.bi].replace('지점','').replace('팀','').replace('FSV','').replace('특판','특');return `<div class="day-dot ${m.dotCls}">${s}</div>`;}).join('');
+    html+=`<div class="cal-day ${it?'today':''}" onclick="openDayModal('${ds}')"><div class="day-num">${d}</div>${dots}</div>`;
+  }
+  html+=`</div><div class="cal-legend">
+    <div class="leg-item"><div class="leg-dot" style="background:#E6F1FB;border:1px solid #B5D4F4"></div>허지안 책임</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#E1F5EE;border:1px solid #9FE1CB"></div>김택수 책임</div>
+    <div class="leg-item"><div class="leg-dot" style="background:#FAEEDA;border:1px solid #FAC775"></div>김종민 선임</div>
+  </div></div>`;
+  document.getElementById('tabCalendar').innerHTML=html;
+}
+function calNav(dir){calMonth+=dir;if(calMonth<0){calMonth=11;calYear--;}if(calMonth>11){calMonth=0;calYear++;}renderCalendar();}
+
+function openDayModal(ds){
+  dayModalDate=ds;
+  document.getElementById('dayModalTitle').textContent=ds+' 지출 내역';
+  const de=entries.filter(e=>e.date===ds).sort((a,b)=>a.mi-b.mi);
+  let html=de.length?de.map(e=>{const m=MANAGERS[e.mi];return`<div class="entry-row">
+    <div class="entry-info"><div class="entry-date-line">${m.name} · ${m.branches[e.bi]}${e.people?' · '+e.people+'명':''}</div><div class="entry-memo">${e.memo||'(메모 없음)'}</div></div>
+    <div class="entry-amts"><div class="entry-amt-incl">${fmt(inclFromExcl(e.amt))}</div><div class="entry-amt-excl">제외 ${fmt(e.amt)}</div></div>
+    <div class="entry-actions">
+      <button class="icon-btn" onclick="closeDayModal();openEdit(${e.id})"><i class="ti ti-edit"></i></button>
+      <button class="icon-btn" style="color:#A32D2D" onclick="deleteEntryDay(${e.id},'${ds}')"><i class="ti ti-trash"></i></button>
+    </div></div>`;}).join(''):'<div style="font-size:13px;color:#aaa;padding:8px 0">등록된 지출이 없습니다.</div>';
+  document.getElementById('dayModalBody').innerHTML=html;
+  document.getElementById('dayModal').classList.add('open');
+}
+function closeDayModal(){document.getElementById('dayModal').classList.remove('open');}
+function openAddFromDay(){closeDayModal();openAdd(0,null,dayModalDate);}
+
+function updateVatPreview(){
+  const v=parseInt(document.getElementById('fAmtIncl').value||'0');
+  const p=document.getElementById('vatPreview');
+  if(!v||v<=0){p.innerHTML='<span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span>';return;}
+  const excl=exclFromIncl(v);
+  p.innerHTML=`부가세 제외 <strong>${fmt(excl)}</strong> &nbsp;·&nbsp; 부가세 <span style="color:#aaa">${fmt(v-excl)}</span>`;
+}
+function autoCalc(){const p=parseInt(document.getElementById('fPeople').value||'0');if(p>0){document.getElementById('fAmtIncl').value=p*PER_HEAD_INCL;updateVatPreview();}}
+function openAdd(mi,bi,date){
+  editingId=null;
+  document.getElementById('modalTitle').textContent='지출 등록';
+  document.getElementById('btnDel').style.display='none';
+  document.getElementById('fDate').value=date||todayStr;
+  populateMgrSel(mi||0);
+  if(bi!=null)setTimeout(()=>{document.getElementById('fBranch').value=bi;},0);
+  document.getElementById('fAmtIncl').value='';document.getElementById('fPeople').value='';document.getElementById('fMemo').value='';
+  document.getElementById('vatPreview').innerHTML='<span>금액을 입력하면 부가세 제외 금액이 계산됩니다</span>';
+  document.getElementById('modal').classList.add('open');
+}
+function openEdit(id){
+  const e=entries.find(x=>x.id===id);if(!e)return;
+  editingId=id;
+  document.getElementById('modalTitle').textContent='지출 수정';
+  document.getElementById('btnDel').style.display='';
+  document.getElementById('fDate').value=e.date;
+  populateMgrSel(e.mi);
+  setTimeout(()=>{document.getElementById('fBranch').value=e.bi;},0);
+  document.getElementById('fAmtIncl').value=inclFromExcl(e.amt);
+  document.getElementById('fPeople').value=e.people||'';document.getElementById('fMemo').value=e.memo||'';
+  updateVatPreview();document.getElementById('modal').classList.add('open');
+}
+function closeModal(){document.getElementById('modal').classList.remove('open');editingId=null;}
+function populateMgrSel(selMi){document.getElementById('fMgr').innerHTML=MANAGERS.map((m,i)=>`<option value="${i}" ${i===selMi?'selected':''}>${m.name}</option>`).join('');updateBranchSel();}
+function updateBranchSel(){const mi=parseInt(document.getElementById('fMgr').value);document.getElementById('fBranch').innerHTML=MANAGERS[mi].branches.map((b,i)=>`<option value="${i}">${b}</option>`).join('');}
+
+async function saveEntry(){
+  const date=document.getElementById('fDate').value,mi=parseInt(document.getElementById('fMgr').value),bi=parseInt(document.getElementById('fBranch').value);
+  const inclVal=parseInt(document.getElementById('fAmtIncl').value||'0'),people=parseInt(document.getElementById('fPeople').value||'0')||undefined,memo=document.getElementById('fMemo').value.trim();
+  if(!date||!inclVal||inclVal<=0){alert('날짜와 금액을 입력해 주세요.');return;}
+  const amtExcl=exclFromIncl(inclVal);
+  if(editingId!==null){const idx=entries.findIndex(e=>e.id===editingId);if(idx>=0)entries[idx]={...entries[idx],date,mi,bi,amt:amtExcl,people,memo};}
+  else entries.push({id:nextId++,date,mi,bi,amt:amtExcl,people,memo});
+  closeModal();await saveData();render();
+}
+async function deleteFromModal(){if(!confirm('삭제할까요?'))return;entries=entries.filter(e=>e.id!==editingId);closeModal();await saveData();render();}
+async function deleteEntryDay(id,ds){if(!confirm('삭제할까요?'))return;entries=entries.filter(e=>e.id!==id);closeDayModal();await saveData();render();openDayModal(ds);}
+
+function render(){renderSummary();renderManagers();if(currentTab==='calendar')renderCalendar();if(currentTab==='unvisited')renderUnvisited();}
+init();
+</script>
+</body>
+</html>
